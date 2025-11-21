@@ -1,0 +1,118 @@
+2025-11-20 19:02:43,397 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:02:43,439 [INFO] Loading plugin: ai_tools.py
+2025-11-20 19:02:43,486 [INFO]  → tools loaded: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate']
+2025-11-20 19:02:43,486 [INFO] Loading plugin: file_tools.py
+2025-11-20 19:02:43,489 [INFO]  → tools loaded: ['file.read', 'file.write', 'file.search']
+2025-11-20 19:02:43,489 [INFO] Loading plugin: system_tools.py
+2025-11-20 19:02:43,521 [INFO]  → tools loaded: ['system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:02:43,521 [INFO] Loading plugin: unity_tools.py
+2025-11-20 19:02:43,524 [ERROR] Plugin load failed [unity_tools.py]: (unicode error) 'unicodeescape' codec can't decode bytes in position 76-77: truncated \UXXXXXXXX escape (unity_tools.py, line 152)
+2025-11-20 19:02:43,524 [INFO] Total tools loaded: 9
+2025-11-20 19:02:43,524 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:09:22,651 [INFO] RPC: tools/call ai.llm_chat args={'prompt': '??? ?? qwen3-coder:30b ??? ????. ? ?? ????.'}
+2025-11-20 19:09:22,652 [INFO] LLM Call → provider=ollama model=qwen2.5:32b
+2025-11-20 19:13:53,703 [INFO] RPC: tools/call ai.llm_chat args={'prompt': '??? qwen3-coder 30B ???? ??????. ? ?? ????.'}
+2025-11-20 19:13:53,703 [INFO] LLM Call → provider=ollama model=qwen2.5:32b
+2025-11-20 19:14:10,819 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:14:10,886 [INFO] Loading plugin: ai_tools.py
+2025-11-20 19:14:10,953 [INFO]  → tools loaded: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate']
+2025-11-20 19:14:10,953 [INFO] Loading plugin: file_tools.py
+2025-11-20 19:14:10,957 [INFO]  → tools loaded: ['file.read', 'file.write', 'file.search']
+2025-11-20 19:14:10,957 [INFO] Loading plugin: system_tools.py
+2025-11-20 19:14:10,975 [INFO]  → tools loaded: ['system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:14:10,975 [INFO] Loading plugin: unity_tools.py
+2025-11-20 19:14:10,975 [ERROR] Plugin load failed [unity_tools.py]: (unicode error) 'unicodeescape' codec can't decode bytes in position 76-77: truncated \UXXXXXXXX escape (unity_tools.py, line 152)
+2025-11-20 19:14:10,975 [INFO] Total tools loaded: 9
+2025-11-20 19:14:10,975 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:14:38,728 [INFO] RPC: tools/call ai.llm_chat args={'prompt': '??? qwen3-coder 30B ???? ??????. ? ?? ????.'}
+2025-11-20 19:14:38,729 [INFO] LLM Call → provider=ollama model=qwen3-coder:30b
+2025-11-20 19:17:58,082 [INFO] RPC: tools/call system.shell args={'cmd': 'echo ??? ? ??? ??'}
+2025-11-20 19:17:58,082 [ERROR] Tool error: system_shell() got an unexpected keyword argument 'cmd'
+2025-11-20 19:18:07,670 [INFO] RPC: tools/call system.open_path args={'path': 'C:\\\\LocalAgentMCP'}
+2025-11-20 19:18:14,129 [INFO] RPC: tools/call file.read args={'path': 'C:\\\\LocalAgentMCP\\\\agent_server.py'}
+2025-11-20 19:18:18,193 [INFO] RPC: tools/call file.write args={'path': 'C:\\\\LocalAgentMCP\\\\test_output.txt', 'content': '? ??? LocalAgent ???? ???????.'}
+2025-11-20 19:19:47,681 [INFO] RPC: tools/call system.shell args={'command': 'echo ??? ? ?? ??'}
+2025-11-20 19:21:05,423 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 19:21:08,824 [INFO] RPC: tools/call file.search args={'root': 'C:\\\\Users\\\\LEESJ\\\\AshenWard', 'pattern': '*.cs'}
+2025-11-20 19:21:08,825 [ERROR] Tool error: file_search() got an unexpected keyword argument 'root'
+2025-11-20 19:21:36,744 [INFO] RPC: tools/call unity.refresh args={'path': 'C:\\\\Users\\\\LEESJ\\\\AshenWard'}
+2025-11-20 19:24:16,913 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 19:24:23,191 [INFO] RPC: tools/call file.search args={'directory': 'C:\\\\Users\\\\LEESJ\\\\AshenWard', 'pattern': '*.cs'}
+2025-11-20 19:24:27,409 [INFO] RPC: tools/call unity.refresh args={'project_path': 'C:\\\\Users\\\\LEESJ\\\\AshenWard'}
+2025-11-20 19:25:55,510 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:25:55,576 [INFO] Loading plugin: ai_tools.py
+2025-11-20 19:25:55,635 [INFO]  → tools loaded: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate']
+2025-11-20 19:25:55,635 [INFO] Loading plugin: system_tools.py
+2025-11-20 19:25:55,650 [INFO]  → tools loaded: ['system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:25:55,650 [INFO] Total tools loaded: 6
+2025-11-20 19:25:55,650 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:36:16,423 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:36:16,484 [INFO] Total tools loaded: 0
+2025-11-20 19:36:16,484 [INFO] Loaded tools: []
+2025-11-20 19:38:49,041 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:38:49,145 [INFO] Loading plugin: ai_tools.py
+2025-11-20 19:38:49,207 [INFO]  → tools loaded: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate']
+2025-11-20 19:38:49,207 [INFO] Loading plugin: file_tools.py
+2025-11-20 19:38:49,208 [INFO]  → tools loaded: ['file.read', 'file.write', 'file.search']
+2025-11-20 19:38:49,209 [INFO] Loading plugin: system_tools.py
+2025-11-20 19:38:49,224 [INFO]  → tools loaded: ['system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:38:49,224 [INFO] Loading plugin: unity_tools.py
+2025-11-20 19:38:49,225 [ERROR] Plugin load failed [unity_tools.py]: (unicode error) 'unicodeescape' codec can't decode bytes in position 76-77: truncated \UXXXXXXXX escape (unity_tools.py, line 152)
+2025-11-20 19:38:49,225 [INFO] Total tools loaded: 9
+2025-11-20 19:38:49,225 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:48:52,686 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:48:52,811 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 19:48:52,816 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 19:48:52,840 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 19:48:52,842 [ERROR] ❌ Plugin load failed [unity_tools.py]: (unicode error) 'unicodeescape' codec can't decode bytes in position 76-77: truncated \UXXXXXXXX escape (unity_tools.py, line 152)
+2025-11-20 19:48:52,843 [INFO] Total tools loaded: 9
+2025-11-20 19:48:52,843 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path']
+2025-11-20 19:54:31,460 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 19:54:31,573 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 19:54:31,574 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 19:54:31,588 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 19:54:31,602 [INFO] ✅ Loaded [unity_tools]: 3 tools
+2025-11-20 19:54:31,602 [INFO] Total tools loaded: 12
+2025-11-20 19:54:31,602 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path', 'unity.build', 'unity.refresh', 'unity.editor_log']
+2025-11-20 19:57:51,314 [INFO] RPC: tools/list
+2025-11-20 19:57:58,933 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 19:59:11,463 [INFO] RPC: tools/list
+2025-11-20 19:59:15,873 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 20:00:15,989 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 20:00:16,100 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 20:00:16,101 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 20:00:16,116 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 20:00:16,123 [INFO] ✅ Loaded [unity_tools]: 3 tools
+2025-11-20 20:00:16,123 [INFO] Total tools loaded: 12
+2025-11-20 20:00:16,123 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path', 'unity.editor_log', 'unity.refresh', 'unity.create_script']
+2025-11-20 20:00:31,131 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 20:02:00,853 [INFO] RPC: tools/call unity.refresh args={'project_path': 'C:\\\\Users\\\\LEESJ\\\\AshenWard'}
+2025-11-20 20:05:23,935 [INFO] RPC: tools/call unity.editor_log args={}
+2025-11-20 20:11:01,687 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 20:11:01,795 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 20:11:01,795 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 20:11:01,814 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 20:11:01,819 [INFO] ✅ Loaded [unity_tools]: 3 tools
+2025-11-20 20:11:01,819 [INFO] Total tools loaded: 12
+2025-11-20 20:11:01,819 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path', 'unity.editor_log', 'unity.refresh', 'unity.create_script']
+2025-11-20 20:11:49,469 [INFO] RPC: tools/call unity.editor_log args={'lines': 50}
+2025-11-20 20:11:49,471 [ERROR] Tool error: unity_read_editor_log() got an unexpected keyword argument 'lines'
+2025-11-20 20:11:55,339 [INFO] RPC: tools/call unity.refresh args={'project_path': 'C:\\\\Users\\\\LEESJ\\\\AshenWard'}
+2025-11-20 20:46:35,190 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 20:46:35,282 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 20:46:35,283 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 20:46:35,287 [ERROR] ❌ Plugin load failed [orchestrator_unity.py]: No module named 'unity_agent'
+2025-11-20 20:46:35,303 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 20:46:35,308 [ERROR] ❌ Plugin load failed [unity_agent_tools.py]: No module named 'unity_agent'
+2025-11-20 20:46:35,334 [WARNING] ⚠️ Skipped [unity_bridge.py]: 'MCP_TOOLS' dict not found
+2025-11-20 20:46:35,336 [INFO] ✅ Loaded [unity_tools]: 3 tools
+2025-11-20 20:46:35,336 [INFO] Total tools loaded: 12
+2025-11-20 20:46:35,336 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path', 'unity.editor_log', 'unity.refresh', 'unity.create_script']
+2025-11-20 20:49:16,143 [INFO] Starting Local Agent MCP v1.0
+2025-11-20 20:49:16,254 [INFO] ✅ Loaded [ai_tools]: 3 tools
+2025-11-20 20:49:16,255 [INFO] ✅ Loaded [file_tools]: 3 tools
+2025-11-20 20:49:16,271 [INFO] ✅ Loaded [system_tools]: 3 tools
+2025-11-20 20:49:16,279 [WARNING] ⚠️ Skipped [unity_bridge.py]: 'MCP_TOOLS' dict not found
+2025-11-20 20:49:16,279 [INFO] ✅ Loaded [unity_tools]: 3 tools
+2025-11-20 20:49:16,280 [INFO] Total tools loaded: 12
+2025-11-20 20:49:16,280 [INFO] Loaded tools: ['ai.llm_chat', 'ai.vision_analyze', 'ai.image_generate', 'file.read', 'file.write', 'file.search', 'system.shell', 'system.ps', 'system.open_path', 'unity.editor_log', 'unity.refresh', 'unity.create_script']
