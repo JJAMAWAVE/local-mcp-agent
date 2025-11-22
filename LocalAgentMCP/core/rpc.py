@@ -1,74 +1,138 @@
 # rpc.py
 import logging
 import asyncio
+import time
+from typing import Dict, Any
 
-logger = logging.getLogger("RPC")
+logger = logging.getLogger("RPC-Engine")
 
-async def handle_rpc(body, registry):
+# -------------------------------------------------------------
+# JSON-RPC 표준 응답 생성기
+# -------------------------------------------------------------
+def rpc_success(rpc_id, result):
+    return {
+        "jsonrpc": "2.0",
+        "id": rpc_id,
+        "result": {"content": [{"type": "text", "text": str(result)}]}
+    }
+
+def rpc_error(rpc_id, code, message):
+    return {
+        "jsonrpc": "2.0",
+        "id": rpc_id,
+        "error": {"code": code, "message": message}
+    }
+
+
+# -------------------------------------------------------------
+# Tool 실행 Wrapper (sync/async 자동 처리 + 예외 핸들링)
+# -------------------------------------------------------------
+async def execute_tool(tool: Dict[str, Any], args: Dict[str, Any]):
+    handler = tool.get("handler")
+
+    if not handler:
+        raise Exception("Tool has no handler()")
+
+    # async
+    if asyncio.iscoroutinefunction(handler):
+        return await handler(args)
+
+    # sync
+    return handler(args)
+
+
+# -------------------------------------------------------------
+# Main RPC Dispatcher
+# -------------------------------------------------------------
+async def handle_rpc(body: Dict[str, Any], registry: Dict[str, Any]):
     rpc_id = body.get("id")
     method = body.get("method")
     params = body.get("params", {})
     version = body.get("jsonrpc")
 
+    # ---------------------------------------------------------
+    # JSON-RPC 기본 검증
+    # ---------------------------------------------------------
     if version != "2.0":
-        return {"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid JSON-RPC version"}, "id": rpc_id}
+        return rpc_error(rpc_id, -32600, "Invalid JSON-RPC version")
 
-    # ===== initialize =====
+    if not method:
+        return rpc_error(rpc_id, -32600, "Missing method")
+
+    # ---------------------------------------------------------
+    # 1) initialize
+    # ---------------------------------------------------------
     if method == "initialize":
+        logger.info("[RPC] initialize request")
+
         return {
             "jsonrpc": "2.0",
+            "id": rpc_id,
             "result": {
-                "protocolVersion": "2025-02-01",
+                "protocolVersion": "2025-03-26",
                 "capabilities": {
-                    "tools": {name: {"name": name} for name in registry}
+                    "tools": {
+                        name: {"name": name}
+                        for name in registry.keys()
+                    }
                 },
                 "serverInfo": {
                     "name": "LocalAIAgent",
-                    "version": "1.0"
+                    "version": "2.0"
                 }
-            },
-            "id": rpc_id
+            }
         }
 
-    # ===== tools/list =====
+    # ---------------------------------------------------------
+    # 2) tools/list
+    # ---------------------------------------------------------
     if method == "tools/list":
+        logger.info("[RPC] tools/list received")
+
         tools_list = []
-        for t in registry.values():
+        for name, info in registry.items():
             tools_list.append({
-                "name": t["name"],
-                "description": t["description"],
-                "inputSchema": t["inputSchema"]
+                "name": name,
+                "description": info.get("description", ""),
+                "inputSchema": info.get("inputSchema", {})
             })
 
         return {
             "jsonrpc": "2.0",
-            "result": {"tools": tools_list},
-            "id": rpc_id
+            "id": rpc_id,
+            "result": {"tools": tools_list}
         }
 
-    # ===== tools/call =====
+    # ---------------------------------------------------------
+    # 3) tools/call
+    # ---------------------------------------------------------
     if method == "tools/call":
         tool_name = params.get("name")
         args = params.get("arguments", {})
 
-        if tool_name not in registry:
-            return {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Tool not found"}, "id": rpc_id}
+        logger.info(f"[RPC] tools/call → {tool_name}")
 
-        fn = registry[tool_name]["execute"]
+        if not tool_name:
+            return rpc_error(rpc_id, -32602, "Tool name missing")
+
+        if tool_name not in registry:
+            return rpc_error(rpc_id, -32601, f"Tool not found: {tool_name}")
+
+        tool = registry[tool_name]
 
         try:
-            if asyncio.iscoroutinefunction(fn):
-                result = await fn(args)
-            else:
-                result = fn(args)
+            started = time.time()
+            result = await execute_tool(tool, args)
+            duration = time.time() - started
 
-            return {
-                "jsonrpc": "2.0",
-                "result": {"content": [{"type": "text", "text": str(result)}]},
-                "id": rpc_id
-            }
+            logger.info(f"[RPC] Tool '{tool_name}' finished in {duration:.3f}s")
+            return rpc_success(rpc_id, result)
+
         except Exception as e:
-            logger.error(f"Tool execution failed: {e}")
-            return {"jsonrpc": "2.0", "error": {"code": -32603, "message": str(e)}, "id": rpc_id}
+            logger.error(f"[RPC] Tool execution failed: {e}")
+            return rpc_error(rpc_id, -32603, str(e))
 
-    return {"jsonrpc": "2.0", "error": {"code": -32601, "message": f"Unknown method {method}"}, "id": rpc_id}
+    # ---------------------------------------------------------
+    # Unknown Method
+    # ---------------------------------------------------------
+    return rpc_error(rpc_id, -32601, f"Unknown method: {method}")

@@ -1,166 +1,169 @@
 import asyncio
 import json
 import logging
-import time
-import websockets
-import subprocess
 import os
+import subprocess
+import websockets
+from typing import Dict, Optional
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from tool_loader import load_all_tools
 
-from fastapi import FastAPI, Request, WebSocket
-from fastapi.responses import JSONResponse
-from sse_starlette.sse import EventSourceResponse
-from starlette.websockets import WebSocketDisconnect
+# ==========================================================
+# LOGGING & CONFIG
+# ==========================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger("LocalAgent")
 
+RENDER_URL = "wss://mcp-relay-server.onrender.com/ws"
+SERVER_VERSION = "1.0.8" # Fixed: Batch & Async I/O Support
+PORT = 8123
+FATIGUE_LIMIT = 30 
+tool_usage_count = 0
 
-# 로컬 AI Manager 준비용 (초기단계)
-# from local_ai_manager import run_local_ai
+# ==========================================================
+# UTILS
+# ==========================================================
+def free_port(port: int):
+    try:
+        subprocess.run(f"taskkill /F /IM uvicorn.exe", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except: pass
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("LocalAgentMCP")
+TOOLS = load_all_tools()
+render_ws: Optional[websockets.WebSocketClientProtocol] = None
 
-# ======================================
-# GLOBALS
-# ======================================
-RENDER_WS_URL = "wss://YOUR_PROD_RENDER_URL/ws"   # <- 반드시 PROD로 변경
-RECONNECT_DELAY = 3
+app = FastAPI(title="Local MCP Agent", version=SERVER_VERSION)
+app.add_middleware(
+    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+)
 
-app = FastAPI()
-
-# SSE Push Queue
-message_queue = asyncio.Queue()
-
-# Render WebSocket
-render_ws = None
-
-
-# ======================================
-# 1) Render WS Auto-Reconnect Client
-# ======================================
-async def render_ws_connect():
-    global render_ws
-
-    while True:
-        try:
-            logger.info(f"[WS] Connecting to Render: {RENDER_WS_URL}")
-            async with websockets.connect(
-                RENDER_WS_URL,
-                ping_interval=None,
-                ping_timeout=None
-            ) as websocket:
-
-                render_ws = websocket
-                logger.info("[WS] Connected to Render")
-
-                listener = asyncio.create_task(ws_listener(websocket))
-                pinger   = asyncio.create_task(ws_heartbeat(websocket))
-
-                await asyncio.gather(listener, pinger)
-
-        except Exception as e:
-            logger.error(f"[WS] Disconnected: {e}")
-            render_ws = None
-
-        logger.info(f"[WS] Reconnecting in {RECONNECT_DELAY} sec...")
-        await asyncio.sleep(RECONNECT_DELAY)
-
-
-async def ws_listener(ws):
-    """Render → Python (ChatGPT 명령)"""
-    while True:
-        try:
-            msg = await ws.recv()
-            logger.info(f"[WS → Local] {msg}")
-
-            # ChatGPT → Unity 명령 라우팅
-            try:
-                payload = json.loads(msg)
-                unity_result = UnityPipeClient.send(payload)
-                logger.info(f"[Unity] Response: {unity_result}")
-
-                # Unity 응답도 ChatGPT에게 SSE로 전달
-                await message_queue.put(unity_result)
-
-            except Exception as e:
-                logger.error(f"Command Handling Error: {e}")
-
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("[WS] Listener closed")
-            break
-
-
-async def ws_heartbeat(ws):
-    """Ping/Pong KeepAlive"""
-    while True:
-        try:
-            await asyncio.sleep(20)
-            pong = await ws.ping()
-            await asyncio.wait_for(pong, timeout=10)
-        except:
-            logger.warning("[WS] Ping timeout")
-            raise
-
-
-# ======================================
-# 2) FastAPI HTTP + SSE
-# ======================================
 @app.get("/")
 def health():
-    return {"status": "ok", "render_ws_connected": render_ws is not None}
+    return {"status": "running", "connected": render_ws is not None}
 
+# ==========================================================
+# TOOL SYNC
+# ==========================================================
+async def sync_tools():
+    try:
+        tools_map = {}
+        for name, data in TOOLS.items():
+            tools_map[name] = {
+                "description": data.get("description", ""),
+                "inputSchema": data.get("inputSchema", {})
+            }
+        
+        msg = {
+            "id": "__sync_tools__",
+            "type": "sync_response",
+            "tools": tools_map 
+        }
+        
+        await relay_send(msg)
+        logger.info(f"[Sync] Sent {len(tools_map)} tools.")
+    except Exception as e:
+        logger.error(f"[Sync] Failed: {e}")
 
-@app.get("/events")
-async def sse_endpoint(request: Request):
-    async def event_generator():
-        while True:
-            if await request.is_disconnected():
-                break
-            data = await message_queue.get()
-            yield {"data": data}
-    return EventSourceResponse(event_generator())
+# ==========================================================
+# MESSAGE HANDLER (안전장치 강화)
+# ==========================================================
+async def handle_relay_message(raw: str):
+    global tool_usage_count
+    try:
+        payload = json.loads(raw)
+    except: return # JSON 파싱 에러는 무시
 
+    # 1. Sync
+    if payload.get("id") == "__sync_tools__" or payload.get("type") == "sync_request":
+        await sync_tools()
+        return
 
-@app.post("/command")
-async def send_command(request: Request):
-    """ChatGPT → Python 명령 → Render WS로 전달"""
+    # 2. Tool Execution
+    rpc_id = payload.get("id")
+    tool = payload.get("tool")
+    args = payload.get("args", {})
+
+    if not tool: return 
+
+    if tool not in TOOLS:
+        await relay_send({"id": rpc_id, "error": f"Unknown tool: {tool}"})
+        return
+
+    if tool == "system.resurrect": tool_usage_count = 0
+    else: tool_usage_count += 1
+    
+    logger.info(f"🚀 [EXEC] {tool}")
+
+    try:
+        handler = TOOLS[tool]["handler"]
+        
+        # 비동기 핸들러 지원 (파일 쓰기 중 핑 끊김 방지)
+        if asyncio.iscoroutinefunction(handler):
+            result = await handler(args)
+        else:
+            # 동기 핸들러라도 별도 스레드에서 실행하여 메인 루프 보호
+            result = await asyncio.to_thread(handler, args)
+
+        if tool_usage_count >= FATIGUE_LIMIT:
+            warning = "\n[SYSTEM] Context full. Recommend '[환생]'."
+            if isinstance(result, dict): result["_note"] = warning
+            elif isinstance(result, str): result += warning
+            
+        await relay_send({"id": rpc_id, "result": result})
+        logger.info(f"✅ [DONE] {tool}")
+
+    except Exception as e:
+        logger.error(f"❌ [TOOL ERR] {tool}: {e}")
+        await relay_send({"id": rpc_id, "error": str(e)})
+
+async def relay_send(data: dict):
+    if render_ws:
+        try: await render_ws.send(json.dumps(data, ensure_ascii=False))
+        except Exception as e: logger.error(f"Send Fail: {e}")
+
+# ==========================================================
+# CONNECTION LOOP (절대 죽지 않는 루프)
+# ==========================================================
+async def connect_to_render():
     global render_ws
+    while True:
+        try:
+            logger.info(f"🔌 Connecting to {RENDER_URL} ...")
+            
+            # [핵심 수정] ping_timeout을 300초(5분)로 늘려 대용량 파일 생성 중 끊김 방지
+            # max_size=None으로 설정하여 긴 코드(페이로드) 수신 허용
+            async with websockets.connect(
+                RENDER_URL, 
+                ping_interval=10, 
+                ping_timeout=300, 
+                max_size=None
+            ) as ws:
+                render_ws = ws
+                logger.info("🔗 Connected! Syncing...")
+                await sync_tools()
 
-    if render_ws is None:
-        return {"error": "Render WS not connected"}
+                async for message in ws:
+                    try:
+                        await handle_relay_message(message)
+                    except Exception as e:
+                        logger.error(f"⚠️ Message Handling Error: {e}")
+        
+        except Exception as e:
+            logger.warning(f"💔 Disconnected: {e}")
+            render_ws = None
+        
+        logger.info("🔄 Reconnecting in 2 seconds...")
+        await asyncio.sleep(2)
 
-    body = await request.json()
-    cmd = json.dumps(body)
-
-    try:
-        await render_ws.send(cmd)
-        return {"status": "sent", "command": body}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# ======================================
-# 3) Optional: Git Auto Commit (초기 구현)
-# ======================================
-def git_auto_commit(message="AutoCommit"):
-    try:
-        subprocess.run(["git", "add", "-A"], cwd=".", check=False)
-        subprocess.run(["git", "commit", "-m", message], cwd=".", check=False)
-        logger.info(f"[Git] Commit: {message}")
-    except Exception as e:
-        logger.error(f"[Git] Failed: {e}")
-
-
-# ======================================
-# APP STARTUP
-# ======================================
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(render_ws_connect())
+    logger.info("=== Local Agent Started (Fixed Batch/Async) ===")
+    asyncio.create_task(connect_to_render())
 
-
-# ======================================
-# RUN
-# ======================================
 if __name__ == "__main__":
+    free_port(PORT)
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-
+    uvicorn.run(app, host="0.0.0.0", port=PORT)

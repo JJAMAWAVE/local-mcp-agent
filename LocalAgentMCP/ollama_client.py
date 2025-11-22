@@ -1,137 +1,173 @@
-# ollama_client.py
-# ---------------------------------------------------------
-# Qwen3-coder:30b 전용 LLM 인터페이스
-# JSON-only 응답 강제 / Markdown 제거 / 중첩 JSON 처리 강화
-# ---------------------------------------------------------
+# =====================================================================
+# ollama_client.py (Refactored)
+# ---------------------------------------------------------------------
+# Stable JSON extraction, error-safe retries, strict schema enforcement
+# for Qwen3-Coder:30B running on Ollama.
+# =====================================================================
 
 import json
 import re
-import requests
 import time
+import requests
 
 
 class OllamaClient:
+    """
+    Stable wrapper for Qwen3-Coder:30B via Ollama.
+    Includes:
+        - Safe retries
+        - Robust JSON extraction
+        - JSON schema enforcement
+        - Markdown stripping
+    """
+
     def __init__(self, model="qwen3-coder:30b", host="http://localhost:11434"):
         self.model = model
         self.host = host.rstrip("/")
 
-    # ---------------------------------------------------------
-    # 올라마 호출 (스트리밍 X, 완전 응답)
-    # ---------------------------------------------------------
-    def generate(self, prompt: str, max_retries=3):
-        url = f"{self.host}/api/generate"
+    # =================================================================
+    # Internal helpers
+    # =================================================================
+    def _post(self, endpoint: str, payload: dict, timeout=180, retry=3):
+        """
+        Unified HTTP POST with retries & safe error logging.
+        """
 
-        for attempt in range(max_retries):
+        url = f"{self.host}{endpoint}"
+
+        for attempt in range(retry):
             try:
-                response = requests.post(
-                    url,
-                    json={"model": self.model, "prompt": prompt, "stream": False},
-                    timeout=180
-                )
+                resp = requests.post(url, json=payload, timeout=timeout)
 
-                if response.status_code != 200:
+                if resp.status_code != 200:
                     raise RuntimeError(
-                        f"Ollama HTTP Error {response.status_code}: {response.text}"
+                        f"Ollama HTTP {resp.status_code}: {resp.text}"
                     )
 
-                return response.json()
+                return resp.json()
 
             except Exception as e:
-                print(f"[OllamaClient] Error: {e} (attempt {attempt+1}/{max_retries})")
+                print(f"[OllamaClient] POST error: {e}  (attempt {attempt+1}/{retry})")
                 time.sleep(1)
 
-        raise RuntimeError("Ollama generate() failed after retries")
+        raise RuntimeError(f"POST failed after {retry} retries → {url}")
 
-    # ---------------------------------------------------------
-    # LLM 출력에서 JSON만 추출
-    # 중첩 JSON 가능 / Markdown 차단
-    # ---------------------------------------------------------
+    # =================================================================
+    # Raw text generation (no streaming)
+    # =================================================================
+    def generate(self, prompt: str):
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False
+        }
+        return self._post("/api/generate", payload)
+
+    # =================================================================
+    # JSON extraction (fallback-safe)
+    # =================================================================
     def extract_json(self, text: str):
+        """
+        Extracts JSON from arbitrary LLM output.
+        Handles:
+            - Markdown fenced blocks
+            - Nested JSON objects
+            - Extra chatter around JSON
+        """
         if not text:
-            raise ValueError("No text to extract JSON from")
+            raise ValueError("LLM returned empty output")
 
-        # 1. Markdown 제거
+        # 1. Markdown fenced code blocks 제거
         text = re.sub(r"```[a-zA-Z0-9]*", "", text)
         text = text.replace("```", "").strip()
 
-        # 2. 전체에서 JSON 파싱을 시도
+        # 2. 전체를 JSON으로 파싱 시도
         try:
             return json.loads(text)
         except:
             pass
 
-        # 3. 중첩 JSON 추출 (스택 기반)
+        # 3. 중첩 JSON 탐지 (스택 기반)
         stack = []
-        start = -1
+        start_idx = -1
 
         for i, ch in enumerate(text):
             if ch == "{":
                 if not stack:
-                    start = i
+                    start_idx = i
                 stack.append("{")
 
             elif ch == "}":
                 if stack:
                     stack.pop()
-                    if not stack:
-                        candidate = text[start:i + 1]
+                    if not stack:  # JSON 완성됨
+                        candidate = text[start_idx: i + 1]
                         try:
                             return json.loads(candidate)
                         except:
                             pass
 
-        raise ValueError("No valid JSON found in LLM output")
+        raise ValueError("Valid JSON not found in LLM output")
 
-    # ---------------------------------------------------------
-    # JSON 스키마 강제 요청 (JSON만 반환)
-    # ---------------------------------------------------------
-    def ask_json(self, prompt: str, json_schema: str):
+    # =================================================================
+    # Strict JSON schema enforced LLM output
+    # =================================================================
+    def ask_json(self, prompt: str, schema: str):
+        """
+        Requests JSON-only response that must match a schema.
+        Returns parsed dict.
+        """
+
         full_prompt = f"""
-You MUST output JSON with this exact schema:
+You MUST output JSON that strictly follows this schema:
 
-{json_schema}
+{schema}
 
-Rules:
-- Output ONLY JSON
+RULES:
+- Output ONLY valid JSON
 - NO markdown
 - NO explanation
 - NO extra text
-- Field names must match exactly
-- If value is missing, fill with empty string
+- Do not wrap the JSON in triple backticks
+- Field names MUST match exactly
+- Missing fields MUST be included as empty string
 
-User Request:
+USER REQUEST:
 {prompt}
 """
-
-        response = self.generate(full_prompt)
-        raw = response.get("response", "")
-
+        raw = self.generate(full_prompt).get("response", "")
         return self.extract_json(raw)
 
-    # ---------------------------------------------------------
-    # JSON 문자열을 강제로 받는 버전
-    # ---------------------------------------------------------
+    # =================================================================
+    # JSON string output (unparsed)
+    # =================================================================
     def ask_for_json_string(self, prompt: str, schema: str) -> str:
-        full_prompt = f"""
-Return ONLY JSON (stringified). 
-NO explanation. NO markdown.
+        """
+        Returns JSON as string (not parsed).
+        Useful when caller must parse manually.
+        """
 
-Schema:
+        full_prompt = f"""
+Return ONLY JSON (stringified).
+NO markdown.
+NO prose.
+STRICTLY follow this schema:
+
 {schema}
 
-User Command:
+USER COMMAND:
 {prompt}
 """
 
-        response = self.generate(full_prompt)
-        return response.get("response", "").strip()
+        raw = self.generate(full_prompt).get("response", "")
+        return raw.strip()
 
 
-# ---------------------------------------------------------
-# 단독 실행 테스트
-# ---------------------------------------------------------
+# =====================================================================
+# Standalone quick test
+# =====================================================================
 if __name__ == "__main__":
-    ollama = OllamaClient(model="qwen3-coder:30b")
+    client = OllamaClient()
 
     schema = """
 {
@@ -142,5 +178,10 @@ if __name__ == "__main__":
 }
 """
 
-    result = ollama.ask_json("Unity에 Player.cs 만들어줘", schema)
-    print(result)
+    print("\n=== Test Call ===")
+    try:
+        result = client.ask_json("Unity에 Player.cs 만들어줘", schema)
+        print("\n[Result]")
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    except Exception as e:
+        print(f"[Error] {e}")

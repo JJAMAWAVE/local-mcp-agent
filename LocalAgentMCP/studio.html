@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Local AI Studio</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --bg: #131314; --sidebar: #1e1f20; --chat-bg: #131314; --user-msg: #2c2c2e; --ai-msg: #1e1f20; --accent: #4c8df5; --text: #e3e3e3; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 260px; background: var(--sidebar); padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #333; }
+        .logo { font-size: 1.2em; font-weight: bold; color: var(--accent); margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
+        .model-select { background: #333; color: #fff; border: none; padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; font-size: 0.9em; outline: none; }
+        .history-list { margin-top: 20px; flex-grow: 1; overflow-y: auto; }
+        .history-item { padding: 10px; border-radius: 20px; cursor: pointer; font-size: 0.9em; color: #aaa; transition: 0.2s; }
+        .history-item:hover { background: #333; color: #fff; }
+
+        /* Main Chat */
+        .main { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+        .chat-area { flex-grow: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; max-width: 900px; margin: 0 auto; width: 100%; scroll-behavior: smooth; }
+        
+        .message { display: flex; gap: 15px; line-height: 1.6; animation: fadeIn 0.3s; }
+        .message.user { flex-direction: row-reverse; }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; flex-shrink: 0; }
+        .user .avatar { background: #555; }
+        .ai .avatar { background: linear-gradient(135deg, #4c8df5, #d500f9); }
+        
+        .bubble { background: var(--ai-msg); padding: 12px 18px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; position: relative; }
+        .user .bubble { background: #282a2c; border-radius: 18px 4px 18px 18px; }
+        .ai .bubble { background: transparent; padding: 0; } /* AI 메시지는 배경 없이 텍스트만 */
+        
+        .status-msg { font-size: 0.8em; color: #777; margin-left: 50px; font-style: italic; }
+
+        /* Input Area */
+        .input-area { padding: 20px; background: var(--bg); display: flex; justify-content: center; }
+        .input-box { background: #1e1f20; border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; width: 100%; max-width: 800px; border: 1px solid #333; transition: 0.3s; }
+        .input-box:focus-within { border-color: var(--accent); background: #252627; }
+        textarea { background: transparent; border: none; color: #fff; width: 100%; resize: none; height: 24px; max-height: 150px; outline: none; font-size: 1em; font-family: inherit; }
+        .btn-send { background: transparent; border: none; color: var(--accent); font-size: 1.2em; cursor: pointer; padding: 5px 10px; opacity: 0.8; transition: 0.2s; }
+        .btn-send:hover { opacity: 1; transform: scale(1.1); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo"><i class="fas fa-brain"></i> Local Studio</div>
+    <label style="font-size:0.8em; color:#888; margin-bottom:5px;">AI 모델 선택</label>
+    <select id="modelSelect" class="model-select">
+        <option>Loading...</option>
+    </select>
+    <div class="history-list">
+        <div class="history-item"><i class="far fa-comment-alt"></i> 새 채팅</div>
+    </div>
+</div>
+
+<div class="main">
+    <div id="chatArea" class="chat-area">
+        <div class="message ai">
+            <div class="avatar"><i class="fas fa-robot"></i></div>
+            <div class="bubble">
+                안녕하세요, 디렉터님! <b>Local AI Studio</b>입니다.<br>
+                어떤 작업을 도와드릴까요? (파일 생성, 유니티 제어, 코드 분석 등)
+            </div>
+        </div>
+    </div>
+
+    <div class="input-area">
+        <div class="input-box">
+            <textarea id="userInput" placeholder="메시지를 입력하세요..." oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
+            <button class="btn-send" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let ws;
+    const chatArea = document.getElementById('chatArea');
+    const userInput = document.getElementById('userInput');
+    const modelSelect = document.getElementById('modelSelect');
+
+    // 1. 모델 목록 로드
+    fetch('/models').then(r => r.json()).then(models => {
+        modelSelect.innerHTML = '';
+        Object.keys(models).forEach(key => {
+            const m = models[key];
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.innerText = m.label;
+            opt.title = m.description;
+            modelSelect.appendChild(opt);
+        });
+    });
+
+    // 2. 웹소켓 연결
+    function connect() {
+        ws = new WebSocket(`ws://${location.host}/ws/chat`);
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'status') {
+                showStatus(data.text);
+            } else if (data.type === 'answer') {
+                removeStatus();
+                addMessage('ai', data.text);
+            }
+        };
+        ws.onclose = () => setTimeout(connect, 1000); // 재연결
+    }
+    connect();
+
+    // 3. 메시지 전송
+    function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+        
+        addMessage('user', text);
+        ws.send(JSON.stringify({
+            message: text,
+            model: modelSelect.value
+        }));
+        userInput.value = '';
+        autoResize(userInput);
+    }
+
+    // 4. UI 헬퍼 함수들
+    function addMessage(role, text) {
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        
+        let avatarIcon = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
+        
+        // 마크다운 대충 처리 (줄바꿈 등)
+        let formatted = text.replace(/\n/g, '<br>');
+        
+        div.innerHTML = `
+            <div class="avatar">${avatarIcon}</div>
+            <div class="bubble">${formatted}</div>
+        `;
+        chatArea.appendChild(div);
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    let currentStatusDiv = null;
+    function showStatus(text) {
+        removeStatus();
+        currentStatusDiv = document.createElement('div');
+        currentStatusDiv.className = 'status-msg';
+        currentStatusDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
+        chatArea.appendChild(currentStatusDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+
+    function removeStatus() {
+        if (currentStatusDiv) {
+            currentStatusDiv.remove();
+            currentStatusDiv = null;
+        }
+    }
+
+    function autoResize(el) {
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+</script>
+</body>
+</html>

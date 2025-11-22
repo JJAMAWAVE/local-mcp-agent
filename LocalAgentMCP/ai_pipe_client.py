@@ -1,79 +1,150 @@
+# ================================================================
+# unity_pipe_client.py (Refactored)
+# ----------------------------------------------------------------
+# 안정적인 Unity Windows Named Pipe 통신 클라이언트
+# - 명령 파이프(COMMAND_PIPE)
+# - 로그 파이프(LOG_PIPE)
+# - 자동 재연결 / UTF-8 대응 / JSON-safe
+# ================================================================
+
 import json
-import threading
 import time
-import sys
+import threading
 import win32file
 import pywintypes
+
+from typing import Callable, Optional, Dict
 
 COMMAND_PIPE = r"\\.\pipe\UnityAIAgentPipe"
 LOG_PIPE = r"\\.\pipe\UnityAIAgentLog"
 
-class UnityPipeClient:
-    def __init__(self):
-        self.log_callback = None
-        self.start_log_listener()
 
-    def send(self, message: dict, timeout=30):
-        """명령 파이프로 JSON 전송 및 대기 표시"""
+class UnityPipeClient:
+    """
+    안정적인 Unity 파이프 클라이언트
+    - Unity 명령 실행
+    - Unity 로그 실시간 수신
+    """
+
+    def __init__(self, log_callback: Optional[Callable[[str], None]] = None):
+        self.log_callback = log_callback
+        self._start_log_thread()
+
+    # ----------------------------------------------------------------------
+    # PUBLIC: Unity 명령 실행
+    # ----------------------------------------------------------------------
+    def send(self, message: Dict, timeout: int = 30) -> Dict:
+        """
+        Unity로 JSON 명령 전송 후 응답을 기다린다.
+        timeout: Unity가 응답할 때까지 기다리는 시간 (기본 30초)
+        """
+
         handle = None
         try:
-            # 1. 연결 시도
-            handle = win32file.CreateFile(
-                COMMAND_PIPE,
-                win32file.GENERIC_READ | win32file.GENERIC_WRITE,
-                0, None, win32file.OPEN_EXISTING, 0, None
-            )
-            
-            # 2. 데이터 전송
-            payload = (json.dumps(message) + "\n").encode("utf-8")
-            win32file.WriteFile(handle, payload)
-            
-            # ★★★ 핵심 수정: 버퍼 강제 비우기 (데이터 밀어넣기) ★★★
-            win32file.FlushFileBuffers(handle)
-            
-            print("   [Pipe] Unity 응답 대기 중...", end="", flush=True)
-            
-            # 3. 수신 (Unity 처리 대기)
-            # Unity가 처리할 때까지 블로킹됨
-            resp_buffer = win32file.ReadFile(handle, 65536)[1]
-            
-            print(" 완료!")
-            
-            win32file.CloseHandle(handle)
-            handle = None
-            
-            return json.loads(resp_buffer.decode("utf-8").strip())
+            # ====== 1) 파이프 연결 시도 ======
+            try:
+                handle = win32file.CreateFile(
+                    COMMAND_PIPE,
+                    win32file.GENERIC_READ | win32file.GENERIC_WRITE,
+                    0,
+                    None,
+                    win32file.OPEN_EXISTING,
+                    0,
+                    None
+                )
+            except pywintypes.error as e:
+                if e.winerror == 2:
+                    return {"success": False, "error": "Unity Pipe not found. (Is Unity running?)"}
+                if e.winerror == 231:
+                    return {"success": False, "error": "Unity Pipe busy. Previous operation stuck?"}
+                return {"success": False, "error": f"Pipe Connect Error: {e}"}
 
-        except pywintypes.error as e:
-            if e.winerror == 2: 
-                return {"success": False, "error": "Unity Pipe not found. (Unity is OFF?)"}
-            if e.winerror == 231: 
-                return {"success": False, "error": "Unity Pipe is busy. (Previous connection stuck?)"}
-            return {"success": False, "error": f"Pipe Error: {e}"}
+            # ====== 2) 명령 JSON 직렬화 ======
+            try:
+                payload = (json.dumps(message, ensure_ascii=False) + "\n").encode("utf-8")
+            except Exception as e:
+                return {"success": False, "error": f"JSON Encode Error: {e}"}
+
+            # ====== 3) Unity로 송신 ======
+            win32file.WriteFile(handle, payload)
+            win32file.FlushFileBuffers(handle)
+
+            # ====== 4) 응답 블로킹 대기 ======
+            start_time = time.time()
+
+            while True:
+                if time.time() - start_time > timeout:
+                    return {"success": False, "error": f"Unity response timeout ({timeout}s)"}
+
+                try:
+                    result_bytes = win32file.ReadFile(handle, 65536)[1]
+                    decoded = result_bytes.decode("utf-8").strip()
+
+                    # 빈 데이터면 계속 대기
+                    if not decoded:
+                        time.sleep(0.05)
+                        continue
+
+                    # JSON 파싱
+                    try:
+                        return json.loads(decoded)
+                    except:
+                        return {"success": False, "error": f"Invalid JSON: {decoded}"}
+
+                except Exception:
+                    # 잠시 대기 후 재시도 (파이프가 바로 응답하지 않는 경우)
+                    time.sleep(0.05)
+
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": f"Unexpected pipe error: {e}"}
+
         finally:
             if handle:
-                try: win32file.CloseHandle(handle)
-                except: pass
+                try:
+                    win32file.CloseHandle(handle)
+                except:
+                    pass
 
-    def start_log_listener(self, callback=None):
-        if callback: self.log_callback = callback
+    # ----------------------------------------------------------------------
+    # PUBLIC: 로그 콜백 설정
+    # ----------------------------------------------------------------------
+    def set_log_callback(self, callback: Callable[[str], None]):
+        self.log_callback = callback
+
+    # ----------------------------------------------------------------------
+    # INTERNAL: 로그 수신 스레드 시작
+    # ----------------------------------------------------------------------
+    def _start_log_thread(self):
         t = threading.Thread(target=self._log_loop, daemon=True)
         t.start()
 
-    def set_log_callback(self, callback):
-        self.log_callback = callback
-
+    # ----------------------------------------------------------------------
+    # INTERNAL: Unity Log Listener Loop
+    # ----------------------------------------------------------------------
     def _log_loop(self):
+        """
+        Unity 로그 파이프 계속 감시 스레드
+        Unity가 꺼졌다 켜져도 자동 재연결됨
+        """
         while True:
             try:
                 handle = win32file.CreateFile(
-                    LOG_PIPE, win32file.GENERIC_READ, 0, None, win32file.OPEN_EXISTING, 0, None
+                    LOG_PIPE,
+                    win32file.GENERIC_READ,
+                    0,
+                    None,
+                    win32file.OPEN_EXISTING,
+                    0,
+                    None
                 )
+
                 while True:
-                    data = win32file.ReadFile(handle, 65536)[1]
-                    line = data.decode("utf-8").strip()
-                    if line and self.log_callback: self.log_callback(line)
+                    raw = win32file.ReadFile(handle, 65536)[1]
+                    text = raw.decode("utf-8", errors="ignore").strip()
+
+                    if text and self.log_callback:
+                        self.log_callback(text)
+
             except:
+                # Unity 로그 파이프가 없을 때
                 time.sleep(1)

@@ -1,99 +1,75 @@
-# plugins/system_tools.py
-# 시스템 제어 플러그인 (shell / process / os-level actions)
-
 import os
 import subprocess
 import platform
 import psutil
 
-MCP_TOOLS = {}
-INPUT_SCHEMAS = {}
+def system_shell_handler(args: dict):
+    command = args.get("command", "")
+    cwd = args.get("cwd", os.getcwd())
 
-# --------------------------------------------------------------
-# system.shell (명령어 실행)
-# --------------------------------------------------------------
-def system_shell(command: str, cwd: str = None) -> str:
-    """
-    Executes a shell command and returns stdout + stderr.
-    Supports PowerShell / CMD / Bash depending on OS.
-    """
-    shell_flag = True if platform.system() == "Windows" else False
+    # Windows 명령어 보정
+    if platform.system() == "Windows":
+        if not command.lower().startswith("cmd /c"):
+            command = f"cmd /c {command}"
 
     try:
+        # [핵심 수정] 한글 윈도우 호환성 (cp949)
         result = subprocess.run(
             command,
-            shell=shell_flag,
+            shell=True,
             cwd=cwd,
             capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore"
+            text=False, # 바이너리로 받아서 수동 디코딩
         )
+        
+        # 수동 디코딩 (한글 깨짐 방지)
+        try:
+            stdout_txt = result.stdout.decode('cp949', errors='ignore')
+            stderr_txt = result.stderr.decode('cp949', errors='ignore')
+        except:
+            stdout_txt = result.stdout.decode('utf-8', errors='ignore')
+            stderr_txt = result.stderr.decode('utf-8', errors='ignore')
 
-        return f"[EXIT {result.returncode}]\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        return {
+            "exitCode": result.returncode,
+            "stdout": stdout_txt.strip(),
+            "stderr": stderr_txt.strip()
+        }
 
     except Exception as e:
-        return f"[ERROR] {e}"
+        return {"error": str(e)}
 
-
-MCP_TOOLS["system.shell"] = system_shell
-INPUT_SCHEMAS["system.shell"] = {
-    "type": "object",
-    "properties": {
-        "command": {"type": "string"},
-        "cwd": {"type": "string"}
-    },
-    "required": ["command"]
-}
-
-# --------------------------------------------------------------
-# system.ps (프로세스 목록)
-# --------------------------------------------------------------
-def system_ps() -> str:
-    """
-    Returns a list of running processes (PID, name, memory usage).
-    """
+def system_ps_handler(args: dict):
     processes = []
-
     for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
         try:
             mem = proc.info['memory_info'].rss // (1024 * 1024)
-            processes.append(f"PID {proc.info['pid']:6} | {mem:5}MB | {proc.info['name']}")
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            continue
+            processes.append({"pid": proc.info['pid'], "name": proc.info['name'], "memoryMB": mem})
+        except: continue
+    return {"processes": processes[:30], "count": len(processes)}
 
-    return "\n".join(processes)
-
-
-MCP_TOOLS["system.ps"] = system_ps
-INPUT_SCHEMAS["system.ps"] = {"type": "object", "properties": {}}
-
-# --------------------------------------------------------------
-# system.open_path (폴더 또는 파일 열기)
-# --------------------------------------------------------------
-def system_open_path(path: str) -> str:
-    """
-    Opens a file or folder using the OS default explorer.
-    """
+def system_open_path_handler(args: dict):
+    path = args.get("path")
     try:
-        if platform.system() == "Windows":
-            os.startfile(path)
-        elif platform.system() == "Darwin":
-            subprocess.call(["open", path])
-        else:
-            subprocess.call(["xdg-open", path])
-
-        return f"[OK] opened: {path}"
-
+        os.startfile(path)
+        return {"status": "ok", "path": path}
     except Exception as e:
-        return f"[ERROR] {e}"
+        return {"error": str(e)}
 
-
-MCP_TOOLS["system.open_path"] = system_open_path
-INPUT_SCHEMAS["system.open_path"] = {
-    "type": "object",
-    "properties": {
-        "path": {"type": "string"}
+TOOL_DEFINITIONS = {
+    "local_system.shell": {
+        "description": "Run Shell Command",
+        "inputSchema": { "type": "object", "properties": { "command": {"type": "string"} }, "required": ["command"] },
+        "handler": system_shell_handler
     },
-    "required": ["path"]
+    "local_system.ps": {
+        "description": "List Processes",
+        "inputSchema": {"type": "object", "properties": {}},
+        "handler": system_ps_handler
+    },
+    "local_system.open_path": {
+        "description": "Open Path",
+        "inputSchema": { "type": "object", "properties": { "path": {"type": "string"} }, "required": ["path"] },
+        "handler": system_open_path_handler
+    }
 }
