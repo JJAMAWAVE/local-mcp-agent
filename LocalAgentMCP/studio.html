@@ -2,176 +2,288 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Local AI Studio</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>Local AI Studio (Gemini UX)</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root { --bg: #131314; --sidebar: #1e1f20; --chat-bg: #131314; --user-msg: #2c2c2e; --ai-msg: #1e1f20; --accent: #4c8df5; --text: #e3e3e3; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; overflow: hidden; }
-        
-        /* Sidebar */
-        .sidebar { width: 260px; background: var(--sidebar); padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #333; }
-        .logo { font-size: 1.2em; font-weight: bold; color: var(--accent); margin-bottom: 30px; display: flex; align-items: center; gap: 10px; }
-        .model-select { background: #333; color: #fff; border: none; padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; font-size: 0.9em; outline: none; }
-        .history-list { margin-top: 20px; flex-grow: 1; overflow-y: auto; }
-        .history-item { padding: 10px; border-radius: 20px; cursor: pointer; font-size: 0.9em; color: #aaa; transition: 0.2s; }
-        .history-item:hover { background: #333; color: #fff; }
+        :root { --bg: #000000; --panel-bg: #121212; --border: #262626; --text: #f5f5f5; --sub-text: #a8a8a8; --accent: #3797f0; --my-bubble: #3797f0; --ai-bubble: #262626; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; height: 100vh; overflow: hidden; }
 
-        /* Main Chat */
-        .main { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
-        .chat-area { flex-grow: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; max-width: 900px; margin: 0 auto; width: 100%; scroll-behavior: smooth; }
-        
-        .message { display: flex; gap: 15px; line-height: 1.6; animation: fadeIn 0.3s; }
-        .message.user { flex-direction: row-reverse; }
-        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2em; flex-shrink: 0; }
-        .user .avatar { background: #555; }
-        .ai .avatar { background: linear-gradient(135deg, #4c8df5, #d500f9); }
-        
-        .bubble { background: var(--ai-msg); padding: 12px 18px; border-radius: 12px; max-width: 80%; white-space: pre-wrap; position: relative; }
-        .user .bubble { background: #282a2c; border-radius: 18px 4px 18px 18px; }
-        .ai .bubble { background: transparent; padding: 0; } /* AI 메시지는 배경 없이 텍스트만 */
-        
-        .status-msg { font-size: 0.8em; color: #777; margin-left: 50px; font-style: italic; }
+        /* Sidebar & Basic UI (이전과 동일) */
+        .sidebar { width: 350px; background: var(--bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+        .header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.2rem; font-weight: 700; }
+        .header i { font-size: 1.2rem; cursor: pointer; }
+        .story-area { padding: 15px 0; border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; display: flex; gap: 15px; padding-left: 15px; scrollbar-width: none; }
+        .story-item { display: flex; flex-direction: column; align-items: center; cursor: pointer; opacity: 0.6; transition: 0.3s; }
+        .story-item.active { opacity: 1; }
+        .story-ring { width: 68px; height: 68px; border-radius: 50%; padding: 2px; background: var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 5px; transition: 0.3s; }
+        .story-item.active .story-ring { background: linear-gradient(45deg, #f09433, #dc2743, #bc1888); }
+        .story-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--bg); }
+        .story-name { font-size: 0.75rem; }
+        .chat-list { flex-grow: 1; overflow-y: auto; padding-top: 10px;}
+        .chat-item { display: flex; align-items: center; padding: 10px 20px; }
+        .chat-avatar { width: 50px; height: 50px; border-radius: 50%; margin-right: 15px; object-fit: cover; }
+        .chat-info { flex-grow: 1; }
+        .chat-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+        .role-badge { font-size: 0.7rem; background: #333; padding: 2px 6px; border-radius: 4px; color: var(--sub-text); }
+        .chat-preview { font-size: 0.85rem; color: var(--sub-text); }
+        .main { flex-grow: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+        .chat-header { padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 10; }
+        .header-avatar { width: 40px; height: 40px; border-radius: 50%; margin-right: 10px; object-fit: cover; border: 1px solid var(--border); }
+        .header-info h2 { margin: 0; font-size: 1rem; }
+        .header-info span { font-size: 0.8rem; color: var(--sub-text); }
 
-        /* Input Area */
-        .input-area { padding: 20px; background: var(--bg); display: flex; justify-content: center; }
-        .input-box { background: #1e1f20; border-radius: 30px; padding: 10px 20px; display: flex; align-items: center; width: 100%; max-width: 800px; border: 1px solid #333; transition: 0.3s; }
-        .input-box:focus-within { border-color: var(--accent); background: #252627; }
-        textarea { background: transparent; border: none; color: #fff; width: 100%; resize: none; height: 24px; max-height: 150px; outline: none; font-size: 1em; font-family: inherit; }
-        .btn-send { background: transparent; border: none; color: var(--accent); font-size: 1.2em; cursor: pointer; padding: 5px 10px; opacity: 0.8; transition: 0.2s; }
-        .btn-send:hover { opacity: 1; transform: scale(1.1); }
+        /* Chat Area & Messages (핵심 변경) */
+        .chat-area { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { display: flex; max-width: 85%; animation: fadeIn 0.3s; align-items: flex-start; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.ai { align-self: flex-start; }
+        .message.system { align-self: center; max-width: 90%; font-size: 0.8rem; color: #666; margin: 10px 0; background: #1a1a1a; padding: 5px 15px; border-radius: 15px; }
+        .msg-avatar { width: 36px; height: 36px; border-radius: 50%; margin-right: 10px; object-fit: cover; display: block; flex-shrink: 0; }
+        .bubble-container { display: flex; flex-direction: column; align-items: flex-start; max-width: 100%; }
+        .user .bubble-container { align-items: flex-end; }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        /* 말풍선 스타일 */
+        .bubble { padding: 12px 18px; border-radius: 18px; font-size: 0.95rem; line-height: 1.6; word-wrap: break-word; white-space: pre-wrap; position: relative; }
+        .user .bubble { background: var(--my-bubble); color: white; border-bottom-right-radius: 4px; }
+        .ai .bubble { background: var(--ai-bubble); color: var(--text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+
+        /* [핵심] 이미지 썸네일 스타일 */
+        .chat-image-thumbnail { max-height: 150px; max-width: 100%; border-radius: 12px; cursor: zoom-in; margin-bottom: 8px; border: 1px solid #333; transition: transform 0.2s; display: block; }
+        .chat-image-thumbnail:hover { transform: scale(1.02); }
+
+        /* [핵심] 긴 텍스트 "더 보기" 스타일 */
+        .bubble-content.truncated { max-height: 200px; overflow: hidden; position: relative; }
+        .bubble-content.truncated::after { content: ""; position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(transparent, var(--ai-bubble)); pointer-events: none; }
+        .user .bubble-content.truncated::after { background: linear-gradient(transparent, var(--my-bubble)); }
+        .read-more-btn { background: #333; color: #ccc; border: none; padding: 5px 15px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; margin-top: 8px; align-self: flex-start; display: none; }
+        .read-more-btn:hover { background: #444; color: white; }
+
+        /* Input Area (이전과 동일) */
+        .status-pill { align-self: center; background: #262626; color: var(--sub-text); font-size: 0.8rem; padding: 5px 12px; border-radius: 15px; margin: 10px 0; display: flex; align-items: center; gap: 6px; }
+        .input-container { padding: 20px; background: var(--bg); border-top: 1px solid var(--border); display: flex; flex-direction: column; position: relative; }
+        .attachment-area { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 5px; }
+        .file-chip { background: #262626; padding: 5px 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; border: 1px solid #333; flex-shrink: 0; animation: fadeIn 0.2s; }
+        .file-chip img { width: 30px; height: 30px; border-radius: 4px; object-fit: cover; }
+        .input-wrapper { background: #121212; border: 1px solid var(--border); border-radius: 24px; padding: 10px 15px; display: flex; align-items: flex-end; transition: 0.3s; }
+        .input-wrapper:focus-within { border-color: var(--sub-text); background: #1a1a1a; }
+        .btn-attach { background: transparent; border: none; color: var(--text); font-size: 1.2rem; cursor: pointer; padding: 8px; margin-right: 5px; transition: 0.2s; border-radius: 50%; }
+        .btn-attach:hover { background: #262626; color: var(--accent); }
+        textarea { background: transparent; border: none; color: var(--text); flex-grow: 1; resize: none; height: 24px; max-height: 150px; outline: none; font-size: 1rem; font-family: inherit; line-height: 1.5; padding: 4px 0; }
+        .btn-send { background: transparent; border: none; color: var(--accent); font-size: 1.2rem; cursor: pointer; padding: 8px; margin-left: 5px; opacity: 0.5; transition: 0.2s; }
+        .btn-send.active { opacity: 1; }
+        .drag-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(55, 151, 240, 0.2); border: 2px dashed var(--accent); z-index: 999; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--accent); font-weight: bold; pointer-events: none; opacity: 0; transition: 0.2s; }
+        .drag-active .drag-overlay { opacity: 1; }
+
+        /* [핵심] 이미지 확대 모달 (Lightbox) */
+        .image-modal { display: none; position: fixed; z-index: 1000; padding-top: 50px; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.9); }
+        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90vh; object-fit: contain; animation: zoomIn 0.3s; }
+        .modal-close { position: absolute; top: 20px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; transition: 0.3s; cursor: pointer; }
+        .modal-close:hover { color: #bbb; }
+        @keyframes zoomIn { from {transform:scale(0.8); opacity:0} to {transform:scale(1); opacity:1} }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
+<body ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+
+<div class="drag-overlay">📂 여기에 파일을 놓으세요</div>
 
 <div class="sidebar">
-    <div class="logo"><i class="fas fa-brain"></i> Local Studio</div>
-    <label style="font-size:0.8em; color:#888; margin-bottom:5px;">AI 모델 선택</label>
-    <select id="modelSelect" class="model-select">
-        <option>Loading...</option>
-    </select>
-    <div class="history-list">
-        <div class="history-item"><i class="far fa-comment-alt"></i> 새 채팅</div>
+    <div class="header"><h1>Local Studio</h1><i class="far fa-edit" onclick="location.reload()" title="초기화"></i></div>
+    <div class="story-area" id="storyList"></div>
+    <div class="chat-list">
+        <div class="chat-item active-chat">
+            <img id="listAvatar" class="chat-avatar" src="" alt="">
+            <div class="chat-info">
+                <div class="chat-name"><span id="listName">Loading...</span><span id="listRole" class="role-badge">Role</span></div>
+                <div class="chat-preview" id="listDesc">...</div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="main">
-    <div id="chatArea" class="chat-area">
-        <div class="message ai">
-            <div class="avatar"><i class="fas fa-robot"></i></div>
-            <div class="bubble">
-                안녕하세요, 디렉터님! <b>Local AI Studio</b>입니다.<br>
-                어떤 작업을 도와드릴까요? (파일 생성, 유니티 제어, 코드 분석 등)
-            </div>
-        </div>
+    <div class="chat-header">
+        <img id="headerAvatar" class="header-avatar" src="" alt="">
+        <div class="header-info"><h2 id="headerName">Select AI</h2><span id="headerStatus">Active now</span></div>
     </div>
 
-    <div class="input-area">
-        <div class="input-box">
-            <textarea id="userInput" placeholder="메시지를 입력하세요..." oninput="autoResize(this)" onkeydown="handleEnter(event)"></textarea>
-            <button class="btn-send" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+    <div id="chatArea" class="chat-area"></div>
+
+    <div class="input-container">
+        <div id="attachmentArea" class="attachment-area"></div>
+        <div class="input-wrapper">
+            <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFileSelect(this)">
+            <button class="btn-attach" onclick="document.getElementById('fileInput').click()" title="파일 첨부"><i class="fas fa-plus-circle"></i></button>
+            <textarea id="userInput" placeholder="메시지 입력..." oninput="handleInput(this)" onkeydown="handleEnter(event)"></textarea>
+            <button id="btnSend" class="btn-send" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
         </div>
     </div>
 </div>
 
+<div id="imageModal" class="image-modal" onclick="closeModal()">
+  <span class="modal-close">&times;</span>
+  <img class="modal-content" id="modalImg">
+</div>
+
 <script>
-    let ws;
+    let ws; let modelConfig = {}; let currentModelKey = ""; let pendingFiles = [];
     const chatArea = document.getElementById('chatArea');
     const userInput = document.getElementById('userInput');
-    const modelSelect = document.getElementById('modelSelect');
+    const btnSend = document.getElementById('btnSend');
+    const attachmentArea = document.getElementById('attachmentArea');
+    
+    const storyList = document.getElementById('storyList');
+    const headerAvatar = document.getElementById('headerAvatar');
+    const headerName = document.getElementById('headerName');
+    const headerStatus = document.getElementById('headerStatus');
+    const listAvatar = document.getElementById('listAvatar');
+    const listName = document.getElementById('listName');
+    const listRole = document.getElementById('listRole');
+    const listDesc = document.getElementById('listDesc');
+    
+    const imageModal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImg');
 
-    // 1. 모델 목록 로드
-    fetch('/models').then(r => r.json()).then(models => {
-        modelSelect.innerHTML = '';
-        Object.keys(models).forEach(key => {
-            const m = models[key];
-            const opt = document.createElement('option');
-            opt.value = key;
-            opt.innerText = m.label;
-            opt.title = m.description;
-            modelSelect.appendChild(opt);
+    async function init() {
+        const res = await fetch('/models'); modelConfig = await res.json();
+        storyList.innerHTML = ''; let firstKey = null;
+        Object.keys(modelConfig).forEach(key => {
+            if (!firstKey) firstKey = key;
+            const m = modelConfig[key];
+            const div = document.createElement('div');
+            div.className = `story-item ${key === firstKey ? 'active' : ''}`;
+            div.onclick = () => selectModel(key);
+            div.innerHTML = `<div class="story-ring"><img class="story-img" src="${m.icon}" alt="${m.label}"></div><span class="story-name">${m.label.split(' ')[0]}</span>`;
+            div.dataset.key = key; storyList.appendChild(div);
         });
-    });
+        if (firstKey) selectModel(firstKey);
+        connect();
+    }
 
-    // 2. 웹소켓 연결
+    async function selectModel(key) {
+        if (currentModelKey && currentModelKey !== key) {
+            const m = modelConfig[key];
+            const msgDiv = document.createElement('div'); msgDiv.className = 'message system';
+            msgDiv.innerText = `🔄 비서 변경: [${m.label.split('(')[0]}]`;
+            chatArea.appendChild(msgDiv); chatArea.scrollTop = chatArea.scrollHeight;
+        }
+        currentModelKey = key; const m = modelConfig[key];
+        document.querySelectorAll('.story-item').forEach(el => { el.classList.toggle('active', el.dataset.key === key); });
+        headerAvatar.src = m.icon; headerName.innerText = m.label; headerStatus.innerText = m.role_badge;
+        listAvatar.src = m.icon; listName.innerText = m.label.split(' (')[0]; listRole.innerText = m.role_badge; listDesc.innerText = m.description;
+
+        chatArea.innerHTML = ''; 
+        try {
+            const res = await fetch(`/history/${key}`);
+            const history = await res.json();
+            if (history.length === 0) chatArea.innerHTML = `<div style="text-align:center; margin-top:50px; color:#666;">${m.label}님과 대화를 시작하세요.</div>`;
+            else history.forEach(msg => { if (msg.role === 'user') addMessage('user', msg.content); else if (msg.role === 'assistant') addMessage('ai', msg.content); });
+        } catch (e) { console.error("History load failed", e); }
+    }
+
     function connect() {
-        ws = new WebSocket(`ws://${location.host}/ws/chat`);
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${location.host}/ws/chat`);
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'status') {
-                showStatus(data.text);
-            } else if (data.type === 'answer') {
-                removeStatus();
-                addMessage('ai', data.text);
-            }
+            if (data.type === 'status') showStatus(data.text);
+            else if (data.type === 'answer') { removeStatus(); addMessage('ai', data.text); }
+            else if (data.type === 'error') { removeStatus(); addMessage('ai', `🚫 오류: ${data.text}`); }
         };
-        ws.onclose = () => setTimeout(connect, 1000); // 재연결
+        ws.onclose = () => setTimeout(connect, 2000);
     }
-    connect();
 
-    // 3. 메시지 전송
+    function handleDragOver(e) { e.preventDefault(); document.body.classList.add('drag-active'); }
+    function handleDragLeave(e) { e.preventDefault(); document.body.classList.remove('drag-active'); }
+    function handleDrop(e) { e.preventDefault(); document.body.classList.remove('drag-active'); if (e.dataTransfer.files) processFiles(e.dataTransfer.files); }
+    function handleFileSelect(input) { if (input.files) processFiles(input.files); input.value = ''; }
+    function processFiles(files) {
+        for (let file of files) {
+            const reader = new FileReader(); const isImage = file.type.startsWith('image/');
+            reader.onload = function(e) {
+                let content = e.target.result; if (isImage) content = content.split(',')[1]; 
+                const fileData = { name: file.name, type: isImage ? 'image' : 'text', content: content, displayUrl: isImage ? e.target.result : null };
+                pendingFiles.push(fileData); renderAttachments(); btnSend.classList.add('active');
+            };
+            if (isImage) reader.readAsDataURL(file); else reader.readAsText(file);
+        }
+    }
+    function renderAttachments() {
+        attachmentArea.innerHTML = '';
+        pendingFiles.forEach((file, index) => {
+            const chip = document.createElement('div'); chip.className = 'file-chip';
+            let iconOrImg = file.type === 'image' ? `<img src="${file.displayUrl}">` : `<i class="fas fa-file-code"></i>`;
+            chip.innerHTML = `${iconOrImg} <span>${file.name}</span> <i class="fas fa-times close-btn" onclick="removeFile(${index})"></i>`;
+            attachmentArea.appendChild(chip);
+        });
+    }
+    function removeFile(index) { pendingFiles.splice(index, 1); renderAttachments(); if (pendingFiles.length === 0 && userInput.value.trim() === '') btnSend.classList.remove('active'); }
+
     function sendMessage() {
         const text = userInput.value.trim();
-        if (!text) return;
+        if (!text && pendingFiles.length === 0) return;
         
-        addMessage('user', text);
-        ws.send(JSON.stringify({
-            message: text,
-            model: modelSelect.value
-        }));
-        userInput.value = '';
-        autoResize(userInput);
+        let displayHtml = text.replace(/\n/g, '<br>');
+        if (pendingFiles.length > 0) {
+            const fileInfo = pendingFiles.map(f => 
+                f.type === 'image' ? `<img src="${f.displayUrl}" class="chat-image-thumbnail" onclick="openModal('${f.displayUrl}')">` : 
+                `<div style="font-size:0.8em; background:#333; padding:5px; border-radius:4px; margin-bottom:5px;"><i class="fas fa-file"></i> ${f.name}</div>`
+            ).join('');
+            displayHtml = fileInfo + displayHtml;
+        }
+        
+        const div = document.createElement('div'); div.className = `message user`;
+        div.innerHTML = `<div class="bubble-container"><div class="bubble"><div class="bubble-content">${displayHtml}</div></div></div>`;
+        chatArea.appendChild(div); chatArea.scrollTop = chatArea.scrollHeight;
+
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ message: text, model: currentModelKey, files: pendingFiles }));
+        userInput.value = ''; userInput.style.height = '24px'; pendingFiles = []; attachmentArea.innerHTML = ''; btnSend.classList.remove('active');
     }
 
-    // 4. UI 헬퍼 함수들
+    // [핵심] 메시지 추가 및 긴 텍스트 처리
     function addMessage(role, text) {
-        const div = document.createElement('div');
-        div.className = `message ${role}`;
+        const div = document.createElement('div'); div.className = `message ${role}`;
+        let avatarHTML = ''; if (role === 'ai') { const m = modelConfig[currentModelKey]; avatarHTML = `<img class="msg-avatar" src="${m.icon}">`; }
         
-        let avatarIcon = role === 'user' ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-        
-        // 마크다운 대충 처리 (줄바꿈 등)
         let formatted = text.replace(/\n/g, '<br>');
+        const bubbleContentId = 'bubble-' + Date.now();
         
-        div.innerHTML = `
-            <div class="avatar">${avatarIcon}</div>
-            <div class="bubble">${formatted}</div>
-        `;
-        chatArea.appendChild(div);
+        div.innerHTML = `${avatarHTML}
+            <div class="bubble-container">
+                <div class="bubble">
+                    <div id="${bubbleContentId}" class="bubble-content">${formatted}</div>
+                </div>
+                <button class="read-more-btn" onclick="toggleReadMore('${bubbleContentId}', this)">더 보기</button>
+            </div>`;
+        chatArea.appendChild(div); 
+        
+        // 긴 텍스트 체크
+        const contentEl = document.getElementById(bubbleContentId);
+        if (contentEl.scrollHeight > 200) {
+            contentEl.classList.add('truncated');
+            div.querySelector('.read-more-btn').style.display = 'block';
+        }
         chatArea.scrollTop = chatArea.scrollHeight;
     }
+
+    // [핵심] 더 보기 토글
+    function toggleReadMore(contentId, btn) {
+        const contentEl = document.getElementById(contentId);
+        contentEl.classList.toggle('truncated');
+        btn.innerText = contentEl.classList.contains('truncated') ? '더 보기' : '접기';
+    }
+
+    // [핵심] 이미지 모달 제어
+    function openModal(src) { modalImg.src = src; imageModal.style.display = "flex"; }
+    function closeModal() { imageModal.style.display = "none"; }
 
     let currentStatusDiv = null;
-    function showStatus(text) {
-        removeStatus();
-        currentStatusDiv = document.createElement('div');
-        currentStatusDiv.className = 'status-msg';
-        currentStatusDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`;
-        chatArea.appendChild(currentStatusDiv);
-        chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    function removeStatus() {
-        if (currentStatusDiv) {
-            currentStatusDiv.remove();
-            currentStatusDiv = null;
-        }
-    }
-
-    function autoResize(el) {
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-    }
-
-    function handleEnter(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    }
+    function showStatus(text) { removeStatus(); currentStatusDiv = document.createElement('div'); currentStatusDiv.className = 'status-pill'; currentStatusDiv.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${text}`; chatArea.appendChild(currentStatusDiv); chatArea.scrollTop = chatArea.scrollHeight; }
+    function removeStatus() { if (currentStatusDiv) { currentStatusDiv.remove(); currentStatusDiv = null; } }
+    function handleInput(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; if(el.value.trim().length > 0 || pendingFiles.length > 0) btnSend.classList.add('active'); else btnSend.classList.remove('active'); }
+    function handleEnter(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+    init();
 </script>
 </body>
 </html>

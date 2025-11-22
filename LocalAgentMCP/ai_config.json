@@ -1,20 +1,26 @@
 {
   "models": {
-    "fast_coding": {
+    "lucia": {
       "name": "qwen2.5-coder:14b",
-      "label": "⚡ 고속 코딩 (Daily Dev)",
-      "description": "빠르고 가벼운 코딩, 단순 수정, UI 작업용 (기본)"
+      "label": "루시아 (Lucia)",
+      "role_badge": "⚡ 고속 코딩",
+      "description": "빠르고 가벼운 코딩, 유니티 작업 병행용",
+      "icon": "/static/lucia.jpg"
     },
-    "deep_logic": {
-      "name": "qwen2.5-coder:32b",
-      "label": "🧠 심층 설계 (Architect)",
-      "description": "복잡한 리팩토링, 버그 원인 분석, 아키텍처 설계용"
+    "mia": {
+      "name": "gemma2:9b",
+      "label": "미아 (Mia)",
+      "role_badge": "🧠 심층 설계",
+      "description": "복잡한 로직 설계, 창의적 아이디어, 리팩토링",
+      "icon": "/static/mia.jpg"
     },
-    "chat_helper": {
-      "name": "llama3:8b",
-      "label": "💬 일반 대화 (Chat)",
-      "description": "가벼운 아이디어 회의, 잡담용"
+    "nadia": {
+      "name": "deepseek-r1:distill-qwen-32b",
+      "label": "나디아 (Nadia)",
+      "role_badge": "🚀 논리 추론",
+      "description": "수학적 계산, 알고리즘 최적화, 멘탈 케어",
+      "icon": "/static/nadia.jpg"
     }
   },
-  "system_prompt": "당신은 Unity 게임 개발을 돕는 수석 엔지니어 AI입니다. 사용자 PC의 파일 시스템과 Unity 에디터를 직접 제어할 수 있는 도구(Tools) 권한을 가지고 있습니다. 사용자의 요청을 분석하여 필요한 경우 주저 없이 도구를 사용하십시오. 대답은 한국어로 명확하고 전문적으로 하십시오."
+  "system_prompt": ""
 }
