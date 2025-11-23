@@ -224,7 +224,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         "name": name,
                         "description": info.get("description", ""),
                         "parameters": info.get("inputSchema", {})
-
+                    }
+                })
             try:
                 async with httpx.AsyncClient(timeout=180) as client:
                     resp = await client.post(DEFAULT_OLLAMA_URL, json=payload)
