@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Master Control v10 (Stress Test)</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧪</text></svg>">
+    <style>
+        body { font-family: 'Consolas', 'Segoe UI', monospace; background-color: #050505; color: #e0e0e0; padding: 20px; margin: 0; }
+        .container { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 450px 1fr; gap: 20px; height: 95vh; }
+        
+        header { grid-column: 1 / -1; border-bottom: 2px solid #00e676; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { margin: 0; color: #00e676; letter-spacing: 1px; }
+
+        .card { background: #111; border: 1px solid #333; border-radius: 6px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .card h3 { margin-top: 0; color: #888; font-size: 0.9em; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; }
+
+        .status-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
+        .led { width: 15px; height: 15px; border-radius: 50%; margin: 0 auto 5px; transition: 0.3s; box-shadow: 0 0 8px #000; }
+        .on { background: #00e676; box-shadow: 0 0 15px #00e676; }
+        .off { background: #f44336; box-shadow: 0 0 15px #f44336; }
+        .wait { background: #ff9800; }
+        .label { font-size: 0.7em; color: #777; }
+
+        select, input, button, textarea { width: 100%; padding: 12px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px; margin-bottom: 10px; font-family: inherit; box-sizing: border-box; }
+        select:focus, input:focus { outline: none; border-color: #00e676; background: #333; }
+        
+        button { cursor: pointer; font-weight: bold; transition: 0.2s; border: none; }
+        button:hover { filter: brightness(1.2); }
+        
+        .btn-start { background: #1b5e20; color: #a5d6a7; font-size: 1.2em; padding: 15px; width: 48%; }
+        .btn-stop { background: #b71c1c; color: #ef9a9a; font-size: 1.2em; padding: 15px; width: 48%; float: right; }
+        .btn-run { background: linear-gradient(45deg, #00e676, #00c853); color: #000; font-size: 1.1em; }
+        .btn-inspect { background: linear-gradient(45deg, #d500f9, #aa00ff); color: #fff; font-size: 1.1em; width: 100%; }
+        .btn-stress { background: linear-gradient(45deg, #ff9800, #ff5722); color: #fff; font-size: 1.1em; width: 100%; margin-top: 10px; }
+        .btn-refresh { background: #2196f3; color: #fff; }
+
+        #dynamic-inputs label { display: block; color: #2196f3; font-size: 0.8em; margin-bottom: 4px; }
+
+        .monitor-wrapper { display: flex; flex-direction: column; height: 100%; background: #000; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+        .traffic-log { flex-grow: 1; padding: 15px; overflow-y: auto; font-size: 0.85em; line-height: 1.5; font-family: 'Consolas', monospace; }
+        
+        .log-entry { margin-bottom: 12px; border-left: 3px solid #333; padding-left: 12px; animation: fadeIn 0.3s; }
+        .tx { border-left-color: #2196f3; color: #90caf9; }
+        .rx { border-left-color: #00e676; color: #a5d6a7; }
+        .err { border-left-color: #f44336; color: #ffcdd2; }
+        .mock { border-left-color: #d500f9; color: #e1bee7; }
+        .stress { border-left-color: #ff5722; color: #ffccbc; }
+        .meta { font-size: 0.75em; color: #666; margin-bottom: 4px; display: flex; justify-content: space-between; }
+
+        .inspector-result { margin-top: 10px; padding: 10px; background: #222; border-radius: 4px; display: none; border: 1px solid #d500f9; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="control-panel">
+        <header>
+            <h1>🤖 MCP COMMANDER v10</h1>
+            <div id="clock" style="color:#666; font-size:0.8em;">READY</div>
+        </header>
+
+        <div class="card">
+            <h3>⚡ POWER CONTROL</h3>
+            <div>
+                <button class="btn-start" onclick="powerAgent('start')">▶ START</button>
+                <button class="btn-stop" onclick="powerAgent('stop')">⏹ STOP</button>
+            </div>
+            <div id="launcher-stat" style="text-align: center; font-size: 0.8em; color: #555; margin-top: 10px;">Connecting...</div>
+        </div>
+
+        <div class="card" style="border-color: #d500f9;">
+            <h3 style="color: #d500f9;">🕵️ MOCK INSPECTOR</h3>
+            <input type="text" id="inspect-path" value="C:/local-mcp-agent/LocalAgentMCP/tools" placeholder="Target Path for Test">
+            <button class="btn-inspect" onclick="runInspector()">🔍 PROBE NETWORK</button>
+            <div id="inspector-result" class="inspector-result"></div>
+        </div>
+
+        <div class="card" style="border-color: #2196f3;">
+            <h3 style="color: #2196f3;">🧪 TEST & STRESS</h3>
+            <select id="test-selector" onchange="updateUI()">
+                <optgroup label="⚡ Stress Tests (대장님 요청)">
+                    <option value="stress_batch">🔥 BATCH WRITE (3 Files)</option>
+                    <option value="stress_long">🔥 LONG WRITE (50KB)</option>
+                </optgroup>
+                <optgroup label="📂 Standard">
+                    <option value="file_write">Write File</option>
+                    <option value="file_read">Read File</option>
+                    <option value="file_list">List Files</option>
+                    <option value="cmd_exec">Run CMD</option>
+                </optgroup>
+            </select>
+            
+            <div id="dynamic-inputs"></div>
+            <button class="btn-run" onclick="runSelectedTest()">🚀 EXECUTE</button>
+        </div>
+    </div>
+
+    <div class="monitor-wrapper">
+        <div style="padding:10px; background:#111; border-bottom:1px solid #333; display:flex; justify-content:space-between;">
+            <span style="color:#00e676;">📊 LIVE TRAFFIC LOG</span>
+            <button onclick="clearLog()" style="width:auto; padding:4px 10px; margin:0; font-size:0.7em;">CLEAR</button>
+        </div>
+        <div id="traffic-log" class="traffic-log"></div>
+    </div>
+</div>
+
+<script>
+    const RELAY_URL = "https://mcp-relay-server.onrender.com";
+    const LAUNCHER_URL = "http://127.0.0.1:8888";
+    const BASE_PATH = "C:/local-mcp-agent/LocalAgentMCP"; // 기본 저장 경로
+
+    const SCENARIOS = {
+        'stress_batch': { tool: 'resource.batch_update', inputs: [] },
+        'stress_long':  { tool: 'resource.update', inputs: [] },
+        'file_write':   { tool: 'resource.update', inputs: [{id:'path', lbl:'File Path', val: BASE_PATH+'/test.txt'}, {id:'content', lbl:'Content', val:'Hello MCP!'}] },
+        'file_read':    { tool: 'resource.fetch',  inputs: [{id:'path', lbl:'File Path', val: BASE_PATH+'/test.txt'}] },
+        'file_list':    { tool: 'resource.list',   inputs: [{id:'path', lbl:'Folder Path', val: BASE_PATH+'/tools'}] },
+        'cmd_exec':     { tool: 'local_system.shell', inputs: [{id:'command', lbl:'CMD Command', val:'dir'}] }
+    };
+
+    // --- TEST RUNNER ---
+    async function runSelectedTest() {
+        const key = document.getElementById('test-selector').value;
+        const config = SCENARIOS[key];
+        let args = {};
+
+        // 1. 스트레스 테스트 로직 (대장님 요청)
+        if (key === 'stress_batch') {
+            // 현재 대시보드 소스코드를 통째로 가져옴
+            const heavyContent = document.documentElement.outerHTML;
+            args = {
+                "resources": [
+                    { "path": BASE_PATH + "/dashboard_1.html", "content": heavyContent },
+                    { "path": BASE_PATH + "/dashboard_2.html", "content": heavyContent },
+                    { "path": BASE_PATH + "/dashboard_3.html", "content": heavyContent }
+                ]
+            };
+            log('STRESS', `🔥 Sending BATCH Request (3 Files, ~${(heavyContent.length*3/1024).toFixed(2)}KB)`, args);
+        } 
+        else if (key === 'stress_long') {
+            // 50KB 더미 텍스트 생성
+            const longText = "A".repeat(50000); 
+            args = { "path": BASE_PATH + "/long_test.txt", "content": longText };
+            log('STRESS', `🔥 Sending LONG Request (50KB)`, {path: args.path, content: "(50,000 chars...)"});
+        }
+        else {
+            // 일반 테스트 로직
+            config.inputs.forEach(field => {
+                args[field.id] = document.getElementById(`inp-${field.id}`).value;
+            });
+            log('TX', `Calling: ${config.tool}`, args);
+        }
+
+        // 2. 전송
+        try {
+            const startTime = Date.now();
+            const res = await mcpCall(config.tool, args);
+            const duration = Date.now() - startTime;
+
+            if (res && res.error) {
+                log('ERR', `Failed after ${duration}ms`, res.error);
+            } else {
+                log('RX', `Success (${duration}ms)`, res);
+            }
+        } catch (e) { 
+            log('ERR', 'Network/Timeout Error', e.toString()); 
+        }
+    }
+
+    // --- MOCK INSPECTOR ---
+    async function runInspector() {
+        const resBox = document.getElementById('inspector-result');
+        const targetPath = document.getElementById('inspect-path').value;
+        resBox.style.display = 'block';
+        resBox.innerHTML = '<span style="color:#aaa;">📡 Probing...</span>';
+        
+        try {
+            const res = await mcpCall("resource.list", { "scope": targetPath });
+            if (res.items) {
+                resBox.innerHTML = `<div style="color:#00e676;">✅ PASS (${res.items.length} items found)</div>`;
+                log('RX', 'Inspector Pass', res);
+            } else { throw res; }
+        } catch (e) {
+            resBox.innerHTML = `<div style="color:#f44336;">❌ FAIL</div>`;
+            log('ERR', 'Inspector Fail', e);
+        }
+    }
+
+    async function mcpCall(toolName, args) {
+        const payload = { "jsonrpc": "2.0", "id": "req-"+Date.now(), "method": "tools/call", "params": { "name": toolName, "arguments": args } };
+        // 30초 타임아웃 설정 (대용량 테스트용)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        
+        try {
+            const res = await fetch(`${RELAY_URL}/mcp`, { 
+                method: "POST", 
+                headers: { "Content-Type": "application/json" }, 
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const json = await res.json();
+            return json.result || json.error;
+        } catch (e) {
+            return { error: e.name === 'AbortError' ? "Request Timeout (30s)" : e.toString() };
+        }
+    }
+
+    // --- UI Helpers (No Changes needed mostly) ---
+    function updateUI() {
+        const key = document.getElementById('test-selector').value;
+        const config = SCENARIOS[key];
+        const container = document.getElementById('dynamic-inputs');
+        container.innerHTML = '';
+        
+        if (key.startsWith('stress')) {
+            container.innerHTML = '<div style="color:#ff9800; font-size:0.9em;">⚠️ This will create real files in your agent folder to test throughput.</div>';
+            return;
+        }
+
+        config.inputs.forEach(field => {
+            const label = document.createElement('label'); label.innerText = field.lbl;
+            const input = field.id === 'content' ? document.createElement('textarea') : document.createElement('input');
+            if(field.id === 'content') input.rows = 5; else input.type = 'text';
+            input.id = `inp-${field.id}`; input.value = field.val;
+            container.appendChild(label); container.appendChild(input);
+        });
+    }
+
+    function log(type, title, data) {
+        const win = document.getElementById('traffic-log');
+        const time = new Date().toLocaleTimeString();
+        const className = type === 'STRESS' ? 'stress' : (type === 'ERR' ? 'err' : (type==='RX'?'rx':'tx'));
+        const json = JSON.stringify(data, null, 2);
+        const html = `<div class="log-entry ${className}"><div class="meta"><span>${type}</span> <span>${time}</span></div><div style="font-weight:bold; margin-bottom:5px;">${title}</div><div style="opacity:0.8; white-space:pre-wrap;">${json}</div></div>`;
+        win.innerHTML = html + win.innerHTML;
+    }
+    function clearLog() { document.getElementById('traffic-log').innerHTML = ''; }
+    
+    // Power & Status Check (Existing Logic)
+    async function powerAgent(action) { fetch(`${LAUNCHER_URL}/${action}`, { method: 'POST' }); setTimeout(checkStatus, 1000); }
+    async function checkStatus() {
+        try { const l = await (await fetch(`${LAUNCHER_URL}/status`)).json(); document.getElementById('launcher-stat').innerText = l.status==='running'?"Online":"Offline"; } catch {}
+    }
+    
+    updateUI();
+    setInterval(checkStatus, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "characters": {
+    "lucia": {
+      "desc": "기획/설계/고민상담 (DeepSeek-R1 14b)",
+      "provider": "ollama",
+      "url": "http://localhost:11434",
+      "model": "deepseek-r1:14b"
+    },
+    "mia": {
+      "desc": "일반 코딩/유니티 제어/빠른 수정 (Qwen 2.5 Coder 14b)",
+      "provider": "ollama",
+      "url": "http://localhost:11434",
+      "model": "qwen2.5-coder:14b"
+    },
+    "nadia": {
+      "desc": "심화 코딩/핵심 로직/어려운 리팩토링 (Qwen 2.5 Coder 32b)",
+      "provider": "ollama",
+      "url": "http://localhost:11434",
+      "model": "qwen2.5-coder:32b"
+    }
+  },
+  "vision": {
+    "provider": "ollama",
+    "url": "http://localhost:11434",
+    "model": "llava"
+  },
+  "image": {
+    "provider": "comfyui",
+    "url": "http://127.0.0.1:8188",
+    "workflow": "default"
+  }
+}

@@ -1,0 +1,40 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.2/staging' branch; Version is '6000.2.10f1 (d3d30d158480) revision 13882125'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'ko' Physical Memory: 32405 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-LEESJ" at "2025-11-20T11:11:55.4550996Z"
+Date: 2025-11-20T11:11:55Z
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 4600, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.17.3+a4e98f1
+  Session Id:              c6d3ceb9d7334802b5dd2fc7b4af6308
+  Correlation Id:          ecabb302ff34985703dd371eaec4946a
+  External correlation Id: 4594035021979160966
+  Machine Id:              bQScJYhv5sNu7bgKN/Kkq8/6DSA=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-LEESJ" (connect: 0.00s, validation: 0.00s, handshake: 0.06s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-LEESJ-notifications" at "2025-11-20T11:11:55.5119172Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 14568641819566-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.06s
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.2.10f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\\Users\\LEESJ\\AshenWard
+-executeMethod
+UnityEditor.AssetDatabase.Refresh
+-quit
+-logFile
+C:\LocalAgentMCP\unity_refresh.log
+Successfully changed project path to: C:\\Users\\LEESJ\\AshenWard
+C:/Users/LEESJ/AshenWard
+Exiting without the bug reporter. Application will terminate with return code 1
