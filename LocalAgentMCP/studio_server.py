@@ -111,15 +111,19 @@ async def execute_tool(tool_name, args):
     try:
         handler = TOOLS[tool_name]["handler"]
         print(f"🔧 [Tool Run] {tool_name}")
+        print(f"📝 [Tool Args] {args}")
         
         if asyncio.iscoroutinefunction(handler):
             result = await handler(args)
         else:
             result = await asyncio.to_thread(handler, args)
-            
+        
+        print(f"✅ [Tool Result] {result}")
         return json.dumps(result, ensure_ascii=False)
     except Exception as e:
-        return f"Error executing {tool_name}: {str(e)}"
+        error_msg = f"Error executing {tool_name}: {str(e)}"
+        print(f"❌ [Tool Error] {error_msg}")
+        return error_msg
 
 async def analyze_image_with_vision_model(image_base64, prompt="이 이미지를 자세히 설명해줘."):
     """Vision 모델(Llava) 호출"""
