@@ -226,6 +226,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         "parameters": info.get("inputSchema", {})
                     }
                 })
+
+            # Payload 생성
+            payload = {
+                "model": current_model.get("name", "qwen2.5-coder:14b"),
+                "messages": [
+                    {"role": "system", "content": current_model.get("system_prompt", "")}
+                ] + history_storage[model_key],
+                "tools": ollama_tools,
+                "stream": False
+            }
             try:
                 async with httpx.AsyncClient(timeout=180) as client:
                     resp = await client.post(DEFAULT_OLLAMA_URL, json=payload)
