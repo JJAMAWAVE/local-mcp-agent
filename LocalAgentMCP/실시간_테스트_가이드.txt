@@ -1,0 +1,38 @@
+# 실시간 테스트용 스크립트
+
+서버가 Start_Studio.bat로 실행 중이니, 다음을 테스트해봅시다:
+
+## 테스트 1: 새 파일 만들기
+
+AI Studio에서 다음 요청을 해보세요:
+
+```
+C:\local-mcp-agent\LocalAgentMCP 에 "새로운테스트.txt" 파일을 만들어줘. 내용은 "테스트 성공!"
+```
+
+## 테스트 2: 터미널 확인
+
+서버 터미널 창에서 다음과 같은 로그가 나타나야 합니다:
+
+```
+🔧 [Tool Run] resource.update
+📝 [Tool Args] {'path': 'C:\\local-mcp-agent\\LocalAgentMCP\\새로운테스트.txt', 'content': '테스트 성공!'}
+✅ [Tool Result] {'status': 'success', 'target_id': '...'}
+```
+
+## 테스트 3: 파일 확인
+
+파일 탐색기에서 "새로운테스트.txt" 파일이 생성되었는지 확인
+
+---
+
+**현재 상태 확인:**
+- ✅ 서버 실행 중 (Start_Studio.bat)
+- ✅ "테스트 환키지롤.txt" 파일 존재 확인됨
+- ❓ 디버그 로그가 터미널에 나타나는지 확인 필요
+
+서버를 **재시작**하지 않았다면, 디버그 로그가 아직 적용되지 않았을 수 있습니다.
+
+**서버 재시작 방법:**
+1. 현재 서버 터미널 창에서 `Ctrl+C` 눌러 종료
+2. `Start_Studio.bat` 다시 실행

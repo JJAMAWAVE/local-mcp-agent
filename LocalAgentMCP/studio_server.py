@@ -4,6 +4,27 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import json
+
+def parse_text_tool_call(content: str):
+    """텍스트로 반환된 도구 호출 파싱 (qwen2.5-coder 등)"""
+    import re
+    try:
+        # JSON 형식 찾기
+        json_match = re.search(r'\{[^{}]*"name"[^{}]*"arguments"[^{}]*\}', content, re.DOTALL)
+        if json_match:
+            tool_json = json.loads(json_match.group())
+            return {
+                "tool_calls": [{
+                    "function": {
+                        "name": tool_json.get("name"),
+                        "arguments": tool_json.get("arguments", {})
+                    }
+                }]
+            }
+    except:
+        pass
+    return None
+
 import os
 import asyncio
 import httpx
@@ -265,6 +286,14 @@ async def websocket_endpoint(websocket: WebSocket):
                         ai_msg = {"content": ai_msg}
 
                     # 4. 툴 사용 여부 체크
+                    # 텍스트 응답에서 도구 호출 파싱 시도 (qwen2.5-coder 등)
+                    if isinstance(ai_msg, dict) and not ai_msg.get("tool_calls"):
+                        text_content = ai_msg.get("content", "")
+                        parsed = parse_text_tool_call(text_content)
+                        if parsed:
+                            ai_msg = parsed
+                            print(f"🔍 [Text Tool Parsed] 텍스트에서 도구 호출 감지!")
+                    
                     if isinstance(ai_msg, dict) and ai_msg.get("tool_calls"):
                         history_storage[model_key].append(ai_msg)
                         
